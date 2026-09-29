@@ -1,0 +1,15 @@
+-- ============================================================
+-- 13_product_category_pricing.sql  |  Tahap 14 — Product Category & Pricing
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/13_product_category_pricing.sql
+-- Pendamping wajib:            docs/13_product_category_pricing.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: item revenue per kategori, pricing

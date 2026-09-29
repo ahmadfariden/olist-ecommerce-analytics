@@ -1,0 +1,15 @@
+-- ============================================================
+-- 09_order_status_fulfillment.sql  |  Tahap 10 — Order Status & Fulfillment
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/09_order_status_fulfillment.sql
+-- Pendamping wajib:            docs/09_order_status_fulfillment.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: status funnel, Cancellation & Unavailable rate

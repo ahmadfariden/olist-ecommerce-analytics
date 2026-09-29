@@ -1,0 +1,15 @@
+-- ============================================================
+-- 04_data_cleaning.sql  |  Tahap 5 — Data Cleaning
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/04_data_cleaning.sql
+-- Pendamping wajib:            docs/04_data_cleaning.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: cleaning berbasis keputusan profiling; raw_* tidak boleh diubah

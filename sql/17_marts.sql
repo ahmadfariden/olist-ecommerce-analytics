@@ -1,0 +1,15 @@
+-- ============================================================
+-- 17_marts.sql  |  Tahap 18 — Marts
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/17_marts.sql
+-- Pendamping wajib:            docs/17_marts.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: 6 mart untuk 6 halaman dashboard

@@ -1,0 +1,15 @@
+-- ============================================================
+-- 15_regional_performance.sql  |  Tahap 16 — Regional Performance
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/15_regional_performance.sql
+-- Pendamping wajib:            docs/15_regional_performance.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: state (tanpa tiering, D12), kota >=100 order

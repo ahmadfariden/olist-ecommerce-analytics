@@ -1,0 +1,22 @@
+# --- Data besar (CSV Olist ±120 MB, geolocation >1 juta baris) ---
+data/raw/*.csv
+*.duckdb
+*.duckdb.wal
+data/processed/*.parquet
+# kecuali artifact gate kecil dari Tahap 19
+!data/processed/19_kpi_crosscheck.parquet
+
+# --- Python / Jupyter ---
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Catatan: data/data_mart/*.parquet dan dashboard/*.pbix SENGAJA di-commit

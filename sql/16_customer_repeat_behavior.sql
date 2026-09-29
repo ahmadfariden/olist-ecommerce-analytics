@@ -1,0 +1,15 @@
+-- ============================================================
+-- 16_customer_repeat_behavior.sql  |  Tahap 17 — Customer Repeat Behavior
+-- ============================================================
+-- GRAIN:       TODO (1 baris = 1 order / item / payment / review / ...)
+-- POPULATION:  TODO (sebutkan flag, mis. is_revenue_order = TRUE)
+-- DENOMINATOR: TODO (untuk metrik rate/persentase, sebutkan populasi + n)
+-- ============================================================
+-- Cara jalankan (DuckDB CLI):  .read sql/16_customer_repeat_behavior.sql
+-- Pendamping wajib:            docs/16_customer_repeat_behavior.md
+--   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
+-- Aturan: Fan-out Guard — pre-aggregate tabel anak ke grain order_id sebelum join,
+--         sertakan reconciliation check setelah join.
+-- ============================================================
+
+-- TODO: Repeat Rate deskriptif (jarak >=24 jam, D5)
