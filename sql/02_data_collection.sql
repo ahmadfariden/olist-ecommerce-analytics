@@ -1,240 +1,180 @@
 -- ============================================================
--- 02_data_collection.sql  |  Tahap 2 — Data Collection
+-- Tahap 2 — Data Collection
+-- File: sql/02_data_collection.sql
+-- Jalankan dari root repo:
+--     duckdb data/olist.duckdb
+--     .mode markdown
+--     .read sql/02_data_collection.sql
+-- (data/olist.duckdb otomatis ter-ignore lewat *.duckdb)
 -- ============================================================
--- GRAIN:       Berbeda per tabel (lihat Grain Matrix di docs/data_dictionary_raw.md)
--- POPULATION:  Seluruh baris CSV, tanpa filter apa pun (raw = source of truth)
--- DENOMINATOR: N/A (belum ada metrik rate di tahap ini)
+-- GRAIN:       beda per tabel (lihat Grain Matrix di docs/data_dictionary_raw.md)
+-- POPULATION:  seluruh baris CSV, tanpa filter (raw preserved)
+-- DENOMINATOR: n/a (tahap ingestion, belum ada metrik rate)
 -- ============================================================
--- Cara jalankan (dari ROOT proyek, tempat olist.duckdb berada):
---
---   cd "C:\Users\ahmad farid\Downloads\olist-ecommerce-analytics\olist-ecommerce-analytics"
---   duckdb olist.duckdb
---   .read sql/02_data_collection.sql
---
--- Path CSV bersifat relatif terhadap root proyek (data/raw/...), jadi DuckDB
--- HARUS dijalankan dari root, bukan dari dalam folder sql/.
---
--- Pendamping wajib: docs/02_data_collection.md
---   (Input · Proses Analisis · Temuan · Output · Assumptions · Batasan data · Kesimpulan)
---
--- Aturan raw data:
---   * Semua kolom dimuat ALL_VARCHAR = TRUE (tanpa tebakan tipe otomatis,
---     mis. zip code berawalan 0). Casting eksplisit dilakukan di Tahap 5.
+-- Governance:
+--   * 1 CSV = 1 tabel raw_*; semua kolom VARCHAR (ALL_VARCHAR = TRUE)
+--     supaya zip code berawalan 0 tidak rusak. Casting di Tahap 5.
 --   * raw_order_reviews wajib quote='"' + escape='"' (komentar berisi kutip & newline).
---   * Tabel raw_* tidak boleh di-UPDATE / DELETE setelah dimuat.
---   * Script ini idempotent: DROP TABLE IF EXISTS lalu CREATE ulang.
+--   * Tabel raw_* TIDAK BOLEH diubah setelah ini.
 -- ============================================================
 
-
--- ============================================================
--- 1. INGESTION: 1 CSV = 1 tabel raw_*
--- ============================================================
-
+-- ------------------------------------------------------------
+-- 1. Ingestion (9 tabel raw_*)
+-- ------------------------------------------------------------
 DROP TABLE IF EXISTS raw_customers;
-CREATE TABLE raw_customers AS
-SELECT * FROM read_csv('data/raw/olist_customers_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
-
 DROP TABLE IF EXISTS raw_geolocation;
-CREATE TABLE raw_geolocation AS
-SELECT * FROM read_csv('data/raw/olist_geolocation_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
-
 DROP TABLE IF EXISTS raw_order_items;
-CREATE TABLE raw_order_items AS
-SELECT * FROM read_csv('data/raw/olist_order_items_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
-
 DROP TABLE IF EXISTS raw_order_payments;
-CREATE TABLE raw_order_payments AS
-SELECT * FROM read_csv('data/raw/olist_order_payments_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
-
 DROP TABLE IF EXISTS raw_order_reviews;
+DROP TABLE IF EXISTS raw_orders;
+DROP TABLE IF EXISTS raw_products;
+DROP TABLE IF EXISTS raw_sellers;
+DROP TABLE IF EXISTS raw_category_translation;
+
+CREATE TABLE raw_customers AS
+SELECT * FROM read_csv('data/raw/olist_customers_dataset.csv', header = true, ALL_VARCHAR = TRUE);
+
+CREATE TABLE raw_geolocation AS
+SELECT * FROM read_csv('data/raw/olist_geolocation_dataset.csv', header = true, ALL_VARCHAR = TRUE);
+
+CREATE TABLE raw_order_items AS
+SELECT * FROM read_csv('data/raw/olist_order_items_dataset.csv', header = true, ALL_VARCHAR = TRUE);
+
+CREATE TABLE raw_order_payments AS
+SELECT * FROM read_csv('data/raw/olist_order_payments_dataset.csv', header = true, ALL_VARCHAR = TRUE);
+
 CREATE TABLE raw_order_reviews AS
 SELECT * FROM read_csv('data/raw/olist_order_reviews_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE,
-                       quote = '"', escape = '"');
+                       header = true, ALL_VARCHAR = TRUE, quote = '"', escape = '"');
 
-DROP TABLE IF EXISTS raw_orders;
 CREATE TABLE raw_orders AS
-SELECT * FROM read_csv('data/raw/olist_orders_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
+SELECT * FROM read_csv('data/raw/olist_orders_dataset.csv', header = true, ALL_VARCHAR = TRUE);
 
-DROP TABLE IF EXISTS raw_products;
 CREATE TABLE raw_products AS
-SELECT * FROM read_csv('data/raw/olist_products_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
+SELECT * FROM read_csv('data/raw/olist_products_dataset.csv', header = true, ALL_VARCHAR = TRUE);
 
-DROP TABLE IF EXISTS raw_sellers;
 CREATE TABLE raw_sellers AS
-SELECT * FROM read_csv('data/raw/olist_sellers_dataset.csv',
-                       header = true, ALL_VARCHAR = TRUE);
+SELECT * FROM read_csv('data/raw/olist_sellers_dataset.csv', header = true, ALL_VARCHAR = TRUE);
 
-DROP TABLE IF EXISTS raw_category_translation;
 CREATE TABLE raw_category_translation AS
-SELECT * FROM read_csv('data/raw/product_category_name_translation.csv',
-                       header = true, ALL_VARCHAR = TRUE);
+SELECT * FROM read_csv('data/raw/product_category_name_translation.csv', header = true, ALL_VARCHAR = TRUE);
 
-
--- ============================================================
--- 2. INVENTORY: daftar tabel raw_* yang berhasil dibuat
--- ============================================================
-
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'main' AND table_name LIKE 'raw\_%' ESCAPE '\'
-ORDER BY table_name;
--- Ekspektasi: 9 baris
-
-
--- ============================================================
--- 3. VERIFIKASI ROW COUNT & JUMLAH KOLOM vs roadmap (Tahap 2)
--- ============================================================
-
-WITH expected(tbl, exp_rows, exp_cols) AS (
-    VALUES
-    ('raw_customers',            99441,   5),
-    ('raw_geolocation',          1000163, 5),
-    ('raw_order_items',          112650,  7),
-    ('raw_order_payments',       103886,  5),
-    ('raw_order_reviews',        99224,   7),
-    ('raw_orders',               99441,   8),
-    ('raw_products',             32951,   9),
-    ('raw_sellers',              3095,    4),
-    ('raw_category_translation', 71,      2)
+-- ------------------------------------------------------------
+-- 2. Initial inventory: row count vs ekspektasi roadmap (Tahap 2)
+-- ------------------------------------------------------------
+WITH actual AS (
+    SELECT 'raw_customers' AS tabel, COUNT(*) AS n FROM raw_customers UNION ALL
+    SELECT 'raw_geolocation',        COUNT(*) FROM raw_geolocation UNION ALL
+    SELECT 'raw_order_items',        COUNT(*) FROM raw_order_items UNION ALL
+    SELECT 'raw_order_payments',     COUNT(*) FROM raw_order_payments UNION ALL
+    SELECT 'raw_order_reviews',      COUNT(*) FROM raw_order_reviews UNION ALL
+    SELECT 'raw_orders',             COUNT(*) FROM raw_orders UNION ALL
+    SELECT 'raw_products',           COUNT(*) FROM raw_products UNION ALL
+    SELECT 'raw_sellers',            COUNT(*) FROM raw_sellers UNION ALL
+    SELECT 'raw_category_translation', COUNT(*) FROM raw_category_translation
 ),
-actual_rows AS (
-    SELECT 'raw_customers' AS tbl, COUNT(*) AS n FROM raw_customers            UNION ALL
-    SELECT 'raw_geolocation',      COUNT(*)       FROM raw_geolocation         UNION ALL
-    SELECT 'raw_order_items',      COUNT(*)       FROM raw_order_items         UNION ALL
-    SELECT 'raw_order_payments',   COUNT(*)       FROM raw_order_payments      UNION ALL
-    SELECT 'raw_order_reviews',    COUNT(*)       FROM raw_order_reviews       UNION ALL
-    SELECT 'raw_orders',           COUNT(*)       FROM raw_orders              UNION ALL
-    SELECT 'raw_products',         COUNT(*)       FROM raw_products            UNION ALL
-    SELECT 'raw_sellers',          COUNT(*)       FROM raw_sellers             UNION ALL
-    SELECT 'raw_category_translation', COUNT(*)   FROM raw_category_translation
-),
-actual_cols AS (
-    SELECT table_name AS tbl, COUNT(*) AS n
-    FROM information_schema.columns
-    WHERE table_schema = 'main' AND table_name LIKE 'raw\_%' ESCAPE '\'
-    GROUP BY table_name
+expected(tabel, n_expected) AS (
+    VALUES ('raw_customers', 99441), ('raw_geolocation', 1000163),
+           ('raw_order_items', 112650), ('raw_order_payments', 103886),
+           ('raw_order_reviews', 99224), ('raw_orders', 99441),
+           ('raw_products', 32951), ('raw_sellers', 3095),
+           ('raw_category_translation', 71)
 )
-SELECT e.tbl,
-       e.exp_rows,
-       r.n AS actual_rows,
-       e.exp_cols,
-       c.n AS actual_cols,
-       CASE WHEN r.n = e.exp_rows AND c.n = e.exp_cols THEN 'PASS' ELSE 'FAIL' END AS status
-FROM expected e
-JOIN actual_rows r USING (tbl)
-JOIN actual_cols c USING (tbl)
-ORDER BY e.tbl;
--- Ekspektasi: 9 baris, semuanya PASS
+SELECT a.tabel,
+       a.n            AS row_count,
+       e.n_expected,
+       CASE WHEN a.n = e.n_expected THEN 'PASS' ELSE 'FAIL' END AS status
+FROM actual a JOIN expected e USING (tabel)
+ORDER BY a.tabel;
 
--- Total kolom seluruh tabel (roadmap: 52)
-SELECT COUNT(*) AS total_columns,
-       CASE WHEN COUNT(*) = 52 THEN 'PASS' ELSE 'FAIL' END AS status
-FROM information_schema.columns
-WHERE table_schema = 'main' AND table_name LIKE 'raw\_%' ESCAPE '\';
+-- ------------------------------------------------------------
+-- 3. Inventory kolom: jumlah kolom per tabel (ekspektasi total 52)
+-- ------------------------------------------------------------
+SELECT table_name AS tabel,
+       COUNT(*)   AS n_kolom,
+       CASE table_name
+            WHEN 'raw_customers' THEN 5  WHEN 'raw_geolocation' THEN 5
+            WHEN 'raw_order_items' THEN 7 WHEN 'raw_order_payments' THEN 5
+            WHEN 'raw_order_reviews' THEN 7 WHEN 'raw_orders' THEN 8
+            WHEN 'raw_products' THEN 9   WHEN 'raw_sellers' THEN 4
+            WHEN 'raw_category_translation' THEN 2
+       END AS n_kolom_expected
+FROM duckdb_columns()
+WHERE table_name LIKE 'raw\_%' ESCAPE '\'
+GROUP BY table_name
+ORDER BY table_name;
 
--- Semua kolom harus VARCHAR (ALL_VARCHAR = TRUE)
-SELECT COUNT(*) AS non_varchar_columns,
-       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS status
-FROM information_schema.columns
-WHERE table_schema = 'main'
-  AND table_name LIKE 'raw\_%' ESCAPE '\'
-  AND data_type <> 'VARCHAR';
+SELECT SUM(n) AS total_kolom, 52 AS total_expected
+FROM (SELECT COUNT(*) AS n FROM duckdb_columns()
+      WHERE table_name LIKE 'raw\_%' ESCAPE '\' GROUP BY table_name);
 
-
--- ============================================================
--- 4. SKEMA: nama kolom apa adanya dari CSV (untuk data dictionary)
--- ============================================================
-
-SELECT table_name, ordinal_position, column_name, data_type
-FROM information_schema.columns
-WHERE table_schema = 'main' AND table_name LIKE 'raw\_%' ESCAPE '\'
-ORDER BY table_name, ordinal_position;
-
-
--- ============================================================
--- 5. CEK GRAIN: duplikasi pada primary key (sesuai Grain Matrix)
---    Hanya melaporkan, TIDAK membersihkan (cleaning = Tahap 5).
---    Ekspektasi dup_rows = 0 untuk semua baris; jika tidak 0, catat
---    sebagai temuan di docs/02_data_collection.md.
--- ============================================================
-
-SELECT 'raw_orders (order_id)' AS grain_check,
-       COUNT(*) - COUNT(DISTINCT order_id) AS dup_rows
-FROM raw_orders
+-- ------------------------------------------------------------
+-- 4. Verifikasi Grain Matrix: duplikat primary key per tabel
+--    (dup_rows = 0 berarti grain sesuai Grain Matrix)
+-- ------------------------------------------------------------
+SELECT 'orders (order_id)' AS grain_check,
+       COUNT(*) - COUNT(DISTINCT order_id) AS dup_rows FROM raw_orders
 UNION ALL
-SELECT 'raw_customers (customer_id)',
-       COUNT(*) - COUNT(DISTINCT customer_id)
-FROM raw_customers
+SELECT 'customers (customer_id)',
+       COUNT(*) - COUNT(DISTINCT customer_id) FROM raw_customers
 UNION ALL
-SELECT 'raw_order_items (order_id, order_item_id)',
-       COUNT(*) - COUNT(DISTINCT (order_id, order_item_id))
-FROM raw_order_items
+SELECT 'order_items (order_id, order_item_id)',
+       COUNT(*) - COUNT(DISTINCT (order_id, order_item_id)) FROM raw_order_items
 UNION ALL
-SELECT 'raw_order_payments (order_id, payment_sequential)',
-       COUNT(*) - COUNT(DISTINCT (order_id, payment_sequential))
-FROM raw_order_payments
+SELECT 'order_payments (order_id, payment_sequential)',
+       COUNT(*) - COUNT(DISTINCT (order_id, payment_sequential)) FROM raw_order_payments
 UNION ALL
-SELECT 'raw_order_reviews (review_id, order_id)',
-       COUNT(*) - COUNT(DISTINCT (review_id, order_id))
-FROM raw_order_reviews
+SELECT 'order_reviews (review_id, order_id)',
+       COUNT(*) - COUNT(DISTINCT (review_id, order_id)) FROM raw_order_reviews
 UNION ALL
-SELECT 'raw_products (product_id)',
-       COUNT(*) - COUNT(DISTINCT product_id)
-FROM raw_products
+SELECT 'products (product_id)',
+       COUNT(*) - COUNT(DISTINCT product_id) FROM raw_products
 UNION ALL
-SELECT 'raw_sellers (seller_id)',
-       COUNT(*) - COUNT(DISTINCT seller_id)
-FROM raw_sellers
+SELECT 'sellers (seller_id)',
+       COUNT(*) - COUNT(DISTINCT seller_id) FROM raw_sellers
 UNION ALL
-SELECT 'raw_category_translation (product_category_name)',
-       COUNT(*) - COUNT(DISTINCT product_category_name)
-FROM raw_category_translation;
+SELECT 'category_translation (product_category_name)',
+       COUNT(*) - COUNT(DISTINCT product_category_name) FROM raw_category_translation;
 
-
--- ============================================================
--- 6. CEK RELASI KUNCI (Join Map): orphan check dasar
---    Hanya melaporkan; analisis mendalam di Tahap 4 & 6.
--- ============================================================
-
-SELECT 'orders.customer_id tanpa pasangan di customers' AS relation_check,
-       COUNT(*) AS orphan_rows
-FROM raw_orders o
-LEFT JOIN raw_customers c USING (customer_id)
+-- ------------------------------------------------------------
+-- 5. Verifikasi Join Map: orphan key (child tanpa parent)
+--    orphan = 0 berarti relasi bersih. Ini pengecekan cepat saja;
+--    profiling relasi menyeluruh ada di Tahap 4.
+-- ------------------------------------------------------------
+SELECT 'orders.customer_id -> customers' AS relasi, COUNT(*) AS orphan
+FROM raw_orders o LEFT JOIN raw_customers c USING (customer_id)
 WHERE c.customer_id IS NULL
 UNION ALL
-SELECT 'order_items.order_id tanpa pasangan di orders',
-       COUNT(*)
-FROM raw_order_items i
-LEFT JOIN raw_orders o USING (order_id)
+SELECT 'order_items.order_id -> orders', COUNT(*)
+FROM raw_order_items i LEFT JOIN raw_orders o USING (order_id)
 WHERE o.order_id IS NULL
 UNION ALL
-SELECT 'order_items.product_id tanpa pasangan di products',
-       COUNT(*)
-FROM raw_order_items i
-LEFT JOIN raw_products p USING (product_id)
+SELECT 'order_items.product_id -> products', COUNT(*)
+FROM raw_order_items i LEFT JOIN raw_products p USING (product_id)
 WHERE p.product_id IS NULL
 UNION ALL
-SELECT 'order_items.seller_id tanpa pasangan di sellers',
-       COUNT(*)
-FROM raw_order_items i
-LEFT JOIN raw_sellers s USING (seller_id)
+SELECT 'order_items.seller_id -> sellers', COUNT(*)
+FROM raw_order_items i LEFT JOIN raw_sellers s USING (seller_id)
 WHERE s.seller_id IS NULL
 UNION ALL
-SELECT 'order_payments.order_id tanpa pasangan di orders',
-       COUNT(*)
-FROM raw_order_payments p
-LEFT JOIN raw_orders o USING (order_id)
+SELECT 'order_payments.order_id -> orders', COUNT(*)
+FROM raw_order_payments p LEFT JOIN raw_orders o USING (order_id)
 WHERE o.order_id IS NULL
 UNION ALL
-SELECT 'order_reviews.order_id tanpa pasangan di orders',
-       COUNT(*)
-FROM raw_order_reviews r
-LEFT JOIN raw_orders o USING (order_id)
+SELECT 'order_reviews.order_id -> orders', COUNT(*)
+FROM raw_order_reviews r LEFT JOIN raw_orders o USING (order_id)
 WHERE o.order_id IS NULL;
+
+-- ------------------------------------------------------------
+-- 6. Contoh baris (sanity check parsing; zip prefix harus tetap berawalan 0,
+--    review comment multi-baris harus utuh)
+-- ------------------------------------------------------------
+SELECT * FROM raw_customers LIMIT 3;
+SELECT * FROM raw_orders LIMIT 3;
+SELECT * FROM raw_order_items LIMIT 3;
+SELECT review_id, order_id, review_score, review_comment_message
+FROM raw_order_reviews
+WHERE review_comment_message IS NOT NULL
+LIMIT 3;
+SELECT customer_zip_code_prefix FROM raw_customers
+WHERE customer_zip_code_prefix LIKE '0%' LIMIT 3;
