@@ -30,18 +30,25 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
--- 1. dim_geo_zip: tambah placeholder untuk zip yang tidak ada di geolocation
+-- 1. dim_geo_zip: tambah placeholder untuk zip customer/seller yang tidak ada di geolocation
+--    Dibangun ulang dari baris asli (n_points_dedup > 0) + placeholder (n_points_dedup = 0),
+--    sehingga aman dijalankan berulang dan tidak bergantung pada ALTER TABLE.
 -- ------------------------------------------------------------
-ALTER TABLE dim_geo_zip ADD COLUMN IF NOT EXISTS is_placeholder BOOLEAN DEFAULT FALSE;
+CREATE OR REPLACE TEMP TABLE g_base AS
+SELECT zip, lat, lng, city, state, n_points_dedup, n_points_valid
+FROM dim_geo_zip WHERE n_points_dedup > 0;
 
-INSERT INTO dim_geo_zip (zip, lat, lng, city, state, n_points_dedup, n_points_valid, is_placeholder)
-SELECT z.zip, NULL, NULL, 'unknown', z.state, 0, 0, TRUE
+CREATE OR REPLACE TABLE dim_geo_zip AS
+SELECT zip, lat, lng, city, state, n_points_dedup, n_points_valid, FALSE AS is_placeholder
+FROM g_base
+UNION ALL
+SELECT z.zip, CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE), 'unknown', z.state, 0, 0, TRUE
 FROM (SELECT zip, MIN(state) AS state
       FROM (SELECT zip_prefix AS zip, state FROM stg_customers
             UNION ALL
             SELECT zip_prefix AS zip, seller_state FROM stg_sellers)
       GROUP BY zip) z
-WHERE z.zip NOT IN (SELECT zip FROM dim_geo_zip);
+WHERE z.zip NOT IN (SELECT zip FROM g_base);
 
 -- ------------------------------------------------------------
 -- 2. dim_seller (1 baris = 1 seller)
@@ -153,14 +160,16 @@ FROM order_payments_clean;
 
 -- ------------------------------------------------------------
 -- 8. fact_reviews (1 baris = 1 review per order, dedup D3)
---    answered_before_delivery: review dijawab sebelum barang diterima (NULL jika belum ada tanggal terima)
+--    answered_before_delivery: review dijawab sebelum barang diterima. Hanya didefinisikan untuk
+--    Delivered Population (is_delivered_complete); NULL untuk order lain (mis. canceled yang
+--    punya tanggal terima), sehingga konsisten dengan stratifikasi D4 (Delivered x Review).
 -- ------------------------------------------------------------
 CREATE OR REPLACE TABLE fact_reviews AS
 SELECT r.review_id, r.order_id, r.review_score, r.has_comment,
        r.review_creation_ts, r.review_answer_ts,
        date_diff('second', r.review_creation_ts, r.review_answer_ts) / 86400.0 AS answer_lag_days,
        r.n_reviews_raw,
-       (r.review_answer_ts < o.ts_customer) AS answered_before_delivery,
+       CASE WHEN o.is_delivered_complete THEN (r.review_answer_ts < o.ts_customer) END AS answered_before_delivery,
        o.is_delivered_complete, o.is_late,
        r.flag_review_before_purchase
 FROM order_reviews_clean r

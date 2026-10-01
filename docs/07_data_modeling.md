@@ -20,7 +20,9 @@
 
 ### Ringkasan validasi
 
-**Gate PASS: 47 dari 47 rule HARD lolos.** Rule KPI (recompute dari model): 16 dari 17 cocok; 1 CHECK (dijelaskan di bawah). Satu INFO (jumlah placeholder geo).
+**Gate PASS: 47 dari 47 rule HARD lolos (run pertama). Rule KPI: 17 dari 17 cocok setelah perbaikan `answered_before_delivery` (rerun).** Satu INFO: jumlah placeholder geo (162).
+
+> Rerun kedua sempat menghasilkan 1 FAIL HARD (`dim_geo_zip` non-placeholder 19.177 vs 19.015, placeholder 0) karena pembangunan placeholder tidak idempotent: `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` mereset flag `is_placeholder` pada baris yang sudah ada. Diperbaiki dengan membangun ulang `dim_geo_zip` dari baris asli (`n_points_dedup > 0`) ditambah placeholder (`n_points_dedup = 0`); aman dijalankan berulang. Konfirmasi hasil akhir menunggu rerun.
 
 ### Skema
 
@@ -97,8 +99,8 @@ Bulan: `missing` 1 (2016-11), `sparse_rampup` 3, `truncated` 2, `full` 20 (= Ana
 | Revenue Orders / Delivered / Review / Single-Seller / Analysis Window | 98.199 / 96.470 / 98.673 / 96.922 / 99.092 |
 | Order tanpa item | 775 |
 
-### Satu rule KPI CHECK: `answered_before_delivery`
-Run pertama menghasilkan **4.654** review `answered_before_delivery = TRUE`, sedangkan angka EDA untuk Delivered × Review adalah **4.653** (180 + 4.473). Selisih 1 review. Penyebab yang paling mungkin: flag di `fact_reviews` awalnya dihitung untuk semua order yang punya tanggal terima, termasuk order `canceled` yang punya tanggal terima (6 order, `flag_canceled_has_delivery_date`), padahal stratifikasi D4 hanya untuk Delivered Population. Definisi di SQL diperbaiki: `answered_before_delivery` hanya terisi untuk `is_delivered_complete` dan NULL untuk order lain. Konfirmasi (hasil 4.653 dan PASS) menunggu rerun `07_data_modeling.sql`. Ini selisih definisi flag, bukan perubahan KPI terkunci.
+### `answered_before_delivery`
+Run pertama menghasilkan **4.654** review `answered_before_delivery = TRUE`, sedangkan angka EDA untuk Delivered × Review adalah **4.653** (180 + 4.473). Flag di `fact_reviews` awalnya dihitung untuk semua order yang punya tanggal terima, sehingga ikut menghitung order di luar Delivered Population. Definisi diperbaiki: flag hanya terisi untuk `is_delivered_complete` dan NULL untuk order lain (konsisten dengan stratifikasi D4). Setelah perbaikan, hasilnya **4.653 (PASS)**. Ini perbaikan definisi flag, bukan perubahan KPI terkunci.
 
 ## Output
 - Tabel: `dim_customer`, `dim_seller`, `dim_product`, `dim_geo_zip`, `dim_date`, `fact_orders`, `fact_order_items`, `fact_payments`, `fact_reviews`, `model_validation`
@@ -114,10 +116,11 @@ Run pertama menghasilkan **4.654** review `answered_before_delivery = TRUE`, sed
 - `dim_geo_zip` placeholder memakai state hasil `MIN(state)` dari customer/seller untuk zip tersebut.
 
 ## Batasan data
+- Pembangunan placeholder `dim_geo_zip` kini idempotent (dibangun ulang dari baris asli + placeholder pada setiap run).
 - `fact_reviews` tidak mempunyai FK ke `dim_date`; tanggal review dihubungkan lewat `fact_orders.purchase_date`.
 - Jarak seller–customer tidak tersedia untuk baris dengan zip placeholder atau tanpa koordinat valid (279 customer, 7 seller).
 - Kota seller belum sepenuhnya bersih (lihat `docs/assumptions.md`); lokasi seller mengikuti `seller_state` (D8).
 - Placeholder geo memakai satu state per zip; bila sebuah zip dipakai oleh customer di beberapa state, state ini hanya perkiraan.
 
 ## Kesimpulan
-Model dimensional (5 dimensi, 4 fakta) selesai dan rekonsiliasi penuh terhadap Order Population dan Item Population: tanpa fan-out, tanpa orphan, dan seluruh KPI terkunci ter-recompute identik dari model. Satu selisih definisi flag (`answered_before_delivery`) sudah diperbaiki di SQL dan menunggu konfirmasi rerun. Skema siap dipakai untuk Part 5 (Business Analysis); tidak ada perubahan grain yang belum final.
+Model dimensional (5 dimensi, 4 fakta) selesai dan rekonsiliasi penuh terhadap Order Population dan Item Population: tanpa fan-out, tanpa orphan, dan seluruh KPI terkunci ter-recompute identik dari model. Satu selisih definisi flag (`answered_before_delivery`) sudah diperbaiki dan terkonfirmasi (4.653). Skema siap dipakai untuk Part 5 (Business Analysis); tidak ada perubahan grain yang belum final.
