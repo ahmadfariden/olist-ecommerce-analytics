@@ -1,4 +1,4 @@
-# 04 — Data Profiling Findings
+# 03 — Data Profiling Findings
 
 > Pendamping `sql/03_data_profiling.sql`. Hasil dijalankan di DuckDB lokal. Tahap ini hanya mencatat masalah; tidak ada cleaning.
 
