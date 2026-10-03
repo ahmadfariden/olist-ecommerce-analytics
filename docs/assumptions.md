@@ -157,3 +157,15 @@ Semua di bawah bersifat **pre-lock** (KPI belum dikunci di Tahap 6), jadi dicata
 ## 8. Output
 
 `data/processed/04_*.parquet` (ter-ignore git), jumlah baris: `orders_clean` 99.441 · `order_items_clean` 112.650 · `order_payments_clean` 103.886 · `order_reviews_clean` 98.673 · `products_clean` 32.951 · `category_translation_clean` 73 · `sellers_clean` 3.095 · `dim_customer` 96.096 · `dim_geo_zip` 19.015.
+
+## 9. Tahap 12 — Review dan Associated Review Score
+
+Ditambahkan setelah `sql/11_customer_satisfaction.sql` dijalankan (lihat `docs/11_customer_satisfaction.md`).
+
+1. **Review bersifat order-level.** Satu review (dedup D3) menempel ke seluruh isi order. Untuk order multi-seller atau multi-kategori, skor yang sama menempel ke semua seller/kategori di order itu.
+2. **Skor per kategori disebut "Associated Review Score".** Pengaruh bauran multi-kategori terhadap skor kategori kecil (selisih rata-rata mutlak 0,021; maks 0,111 pada `home_construction`) tetapi tetap tidak boleh disebut skor produk.
+3. **Skor per seller hanya dari Single-Seller Population** (seller ≥30 order ber-review, D6): 619 seller, 83,07% dari order single-seller ber-review. Alasan: order multi-seller berskor rata-rata 2,858 (47,31% ≤2) vs single-seller 4,121 (13,76% ≤2).
+4. **Late vs on-time wajib dua lapis (D4)**; kedua lapis tidak boleh dilebur menjadi satu angka. `answered_before_delivery` hanya terdefinisi untuk Delivered Population.
+5. **`review_creation_date` = tanggal survei dikirim.** Untuk order terkirim jatuh +1 hari setelah tanggal sampai (89,04%); untuk review yang dijawab sebelum barang sampai jatuh +2 hari setelah tanggal estimasi. Konsisten dengan deskripsi dataset (survei dikirim ketika barang diterima atau estimasi sudah lewat).
+6. **Review Population mencakup review pada order non-delivered** (2.849 review, antara lain 605 canceled dan 595 unavailable); Avg Review Score terkunci (4,0864) mencakup semuanya.
+7. **Korelasi tingkat state/seller/kategori** (−0,82 / −0,54 / −0,20) adalah korelasi agregat, bukan efek pada pelanggan individu, dan tidak mengontrol variabel perancu.
