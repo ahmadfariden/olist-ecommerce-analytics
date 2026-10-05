@@ -86,6 +86,15 @@ Bukan revisi definisi, hanya koreksi angka evidence sebelum lock:
 - **A4 / D9:** bucket rekonsiliasi di roadmap (98.285 / 131 / 249) tidak terreproduksi dengan aritmetika `DECIMAL(12,2)`. Angka terkunci: **98.362 / 54 / 249** (99,693% ≤ 0,01). Total 98.416 dan bucket >1 identik, jadi 77 order berpindah bucket; penyebab paling mungkin selisih tepat 1 sen yang tergeser floating point pada hitungan lama (belum dibuktikan langsung). Kesimpulan D9 tidak berubah.
 - **Whitespace review:** `TRIM` DuckDB hanya membuang spasi; regex `^\s*$` menemukan 27 pesan whitespace-only (sesuai roadmap), `TRIM` hanya 9.
 
+
+### Catatan basis populasi (pasca-lock; evidence, bukan perubahan definisi)
+
+Diverifikasi saat analisis Tahap 14–15; ambang dan definisi D7/D11 tidak berubah.
+
+- **D7 (kategori `unknown`):** 1,321% (Item Population, R$ 179.535,28) vs **1,323%** (Revenue Population, R$ 178.572,55; 1.437 order). Dashboard memakai basis Revenue Population.
+- **D11 (tier seller):** jumlah seller 210 / 424 / 2.461 sama pada kedua basis; share revenue Top-tier 51,48% (Item Population) vs **51,68%** (Revenue Population), Mid 25,32% vs **25,40%**, Long-tail 23,20% vs **22,93%**. Dashboard memakai basis Revenue Population.
+- Selisih seluruhnya berasal dari item pada order canceled/unavailable (R$ 97.242,96).
+
 ## 5. Revision Log
 
 Diisi bila definisi KPI atau populasi berubah **setelah** lock.
