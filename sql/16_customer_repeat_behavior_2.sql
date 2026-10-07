@@ -345,21 +345,3 @@ COPY repeat_findings TO 'data/processed/16_repeat_findings.parquet' (FORMAT PARQ
 SELECT '16_repeat_monthly' AS file, COUNT(*) AS n FROM read_parquet('data/processed/16_repeat_monthly.parquet') UNION ALL
 SELECT '16_repeat_cohort', COUNT(*) FROM read_parquet('data/processed/16_repeat_cohort.parquet') UNION ALL
 SELECT '16_repeat_findings', COUNT(*) FROM read_parquet('data/processed/16_repeat_findings.parquet');
-EOF
-cd /tmp/smoke && python3 - << 'PYEOF'
-import duckdb, re
-con = duckdb.connect('smoke.duckdb')
-sql = open('/home/claude/olist-ecommerce-analytics/sql/16_customer_repeat_behavior.sql').read()
-stmts = [s.strip() for s in re.split(r';\s*\n', sql) if s.strip()]
-err=0
-for i,s in enumerate(stmts):
-    body = "\n".join(l for l in s.splitlines() if not l.strip().startswith('--')).strip()
-    if not body: continue
-    try: con.execute(body).fetchall()
-    except Exception as e:
-        err+=1; print('ERR',i,str(e)[:350]); print(body[:220]); print('---')
-print('statements',len(stmts),'errors',err)
-PYEOF
-Output
-
-statements 42 errors 0
